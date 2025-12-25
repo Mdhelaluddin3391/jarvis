@@ -3,7 +3,6 @@
 import numpy as np
 from openwakeword.model import Model
 
-
 class WakeWordDetector:
     """
     Stable wake-word detector using OpenWakeWord
@@ -31,6 +30,10 @@ class WakeWordDetector:
             self.thresholds,
             self.patience
         )
+
+        # FIX: Check if scores is actually a dictionary (it can be 0 if buffering)
+        if not isinstance(scores, dict):
+            return False
 
         score = scores.get(self.keyword, 0.0)
 

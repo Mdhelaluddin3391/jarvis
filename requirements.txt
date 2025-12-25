@@ -1,1 +1,15 @@
+# Core
 requests
+numpy
+
+# Audio / Perception
+sounddevice
+webrtcvad
+openwakeword
+
+# LLM (Local)
+llama-cpp-python
+
+# Optional (for future Memory/Embeddings)
+sentence-transformers
+chromadb

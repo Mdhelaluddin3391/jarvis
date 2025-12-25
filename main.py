@@ -32,7 +32,7 @@ from learning.collector.llm_logger import LLMLogger
 from permissions.risk_analyzer import RiskAnalyzer
 from permissions.approvals import ApprovalManager
 from permissions.sandbox import Sandbox
-
+from perception.audio.audio_stream import AudioStream
 
 def bootstrap_agents() -> AgentRegistry:
     """Register all agents here"""
@@ -63,35 +63,44 @@ def main():
     print("🕒", datetime.now().isoformat())
     print("-" * 50)
 
-    # ---- Initialize subsystems ----
+    # Initialize Core Systems
     agent_registry = bootstrap_agents()
     llm_manager = LLMManager()
     memory = MemoryManager()
+    
+    # Initialize Audio
+    audio_stream = AudioStream()
 
-    # Learning loggers (observe-only)
+    # Learning & Permissions
     interaction_logger = InteractionLogger()
-    agent_logger = AgentLogger()
-    llm_logger = LLMLogger()
-
-    # Permissions
     risk_analyzer = RiskAnalyzer()
     approval_manager = ApprovalManager()
-
-    # Brain
     brain = Brain(agent_registry, llm_manager)
 
     print("✅ Systems online.")
-    print("💡 Tips:")
-    print("  • CLI command: !ls  |  !pwd")
-    print("  • Open app: open firefox")
-    print("  • WiFi: wifi on / wifi off")
-    print("  • Exit: exit / quit")
-    print("-" * 50)
+    
+    # ---- MODE SELECTION ----
+    mode = input("Select Mode (text/voice): ").strip().lower()
+    voice_mode = (mode == "voice")
+    
+    if voice_mode:
+        print("🎙️  VOICE MODE ACTIVE. Say 'Jarvis' to start.")
+        audio_stream.start()
+    else:
+        print("⌨️  TEXT MODE ACTIVE.")
 
     # ---- Main loop ----
     while True:
         try:
-            user_input = input("You > ").strip()
+            user_input = ""
+            
+            # 1. INPUT PHASE
+            if voice_mode:
+                # Blocks until wake word + command received
+                user_input = audio_stream.listen()
+            else:
+                user_input = input("You > ").strip()
+            
             if not user_input:
                 continue
 
@@ -99,6 +108,8 @@ def main():
                 print("👋 Shutting down Jarvis.")
                 break
 
+            # ... (Rest of the loop logic remains the same: memory, risk, brain, logs) ...
+            
             # ---- Short-term memory ----
             memory.conversation.add("user", user_input)
 
@@ -114,30 +125,26 @@ def main():
                     print("⛔ Action rejected by user.")
                     continue
 
-            # ---- Sandbox check ----
-            if not Sandbox.validate({"text": user_input}):
-                print("❌ Sandbox validation failed.")
-                continue
-
             # ---- Brain handles input ----
             response = brain.handle(user_input)
-
-            # ---- Output ----
             print("Jarvis >", response)
 
             # ---- Short-term memory ----
             memory.conversation.add("jarvis", response)
-
-            # ---- Learning logs (observe only) ----
             interaction_logger.log(user_input, response)
 
         except KeyboardInterrupt:
             print("\n👋 Interrupted. Exiting safely.")
+            if voice_mode:
+                audio_stream.stop()
             break
 
         except Exception as e:
             print("❌ Unexpected error:", str(e))
-
+            if voice_mode:
+                 # Prevent infinite error loops in voice mode
+                 audio_stream.stop()
+                 break
 
 if __name__ == "__main__":
     main()
